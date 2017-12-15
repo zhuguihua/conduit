@@ -172,4 +172,45 @@ mod tests {
             Storage::<Megabytes>::from(4)
         );
     }
+
+
+    #[test]
+    fn parsing_is_case_insensitive() {
+        assert_eq!(
+            "15 gb".parse::<Storage<Gigabytes>>()
+                   .expect("parse"),
+            Storage::<Gigabytes>::from(15)
+        );
+        assert_eq!(
+            "15 gB".parse::<Storage<Megabytes>>()
+                    .expect("parse"),
+            "15 GB".parse::<Storage<Gigabytes>>()
+                   .expect("parse"),
+        );
+        assert_eq!(
+            "15 Gb".parse::<Storage<Megabytes>>()
+                    .expect("parse"),
+            "15 gb".parse::<Storage<Gigabytes>>()
+                   .expect("parse"),
+        );
+    }
+
+    #[test]
+    fn parsing_handles_leading_and_trailing_whitespace() {
+        assert_eq!(
+            " 15 GB".parse::<Storage<Gigabytes>>()
+                   .expect("parse ' 15 GB'"),
+            Storage::<Gigabytes>::from(15)
+        );
+        assert_eq!(
+            "15GB".parse::<Storage<Gigabytes>>()
+                  .expect("parse '15GB'"),
+            Storage::<Gigabytes>::from(15)
+        );
+        assert_eq!(
+            "15 gb ".parse::<Storage<Gigabytes>>()
+                  .expect("parse '15 gb '"),
+            Storage::<Gigabytes>::from(15)
+        );
+    }
 }
