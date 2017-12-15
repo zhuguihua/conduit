@@ -77,6 +77,7 @@ pub enum Error {
 #[derive(Clone, Debug)]
 pub enum ParseError {
     NotANumber,
+    InvalidUnit,
     HostIsNotAnIpAddress,
     NotUnicode,
     UrlError(UrlError),
@@ -312,4 +313,210 @@ fn parse<T, Parse>(strings: &Strings, name: &str, parse: Parse) -> Result<Option
         },
         None => Ok(None),
     }
+}
+
+mod storage {
+    use std::cmp::Ordering;
+    use std::fmt;
+    use std::str::FromStr;
+    use std::marker::PhantomData;
+    use super::{parse_number, ParseError};
+
+    #[derive(Copy, Clone, Debug, Eq, Ord)]
+    pub struct Storage<U: StorageUnit> {
+        bytes: usize,
+        unit: PhantomData<U>,
+    }
+    pub trait StorageUnit {
+        const NAME: &'static str;
+        const SHORT_NAME: &'static str;
+        const BYTES_PER_UNIT: usize;
+    }
+
+    // ===== impl Storage =====
+
+    impl<Unit: StorageUnit> fmt::Display for Storage<Unit> {
+        fn fmt(&self, f: &mut fmt::Formatter) -> fmt::Result {
+            let float_value = 
+                (self.bytes as f64) / (Unit::BYTES_PER_UNIT as f64);
+
+            write!(f,
+                "{number} {name}{plural}",
+                number=float_value,
+                name=Unit::NAME,
+                plural=if float_value == 1f64 { "" } else { "s" }
+            )
+        }
+    }
+
+    impl<Unit: StorageUnit> From<usize> for Storage<Unit> {
+        fn from(u: usize) -> Self {
+            Self {
+                bytes: u * Unit::BYTES_PER_UNIT,
+                unit: PhantomData
+            }
+        }
+    }
+
+    impl<A: StorageUnit> Storage<A> {
+        pub fn into<B: StorageUnit>(self) -> Storage<B> {
+            Storage {
+                bytes: self.bytes,
+                unit: PhantomData,
+            }
+        }
+    }
+
+    impl<A, B> PartialEq<Storage<B>> for Storage<A>
+    where   
+        A: StorageUnit,
+        B: StorageUnit,
+    {
+        fn eq(&self, rhs: &Storage<B>) -> bool{
+            self.bytes == rhs.bytes
+        }
+    }
+
+    impl<A, B> PartialOrd<Storage<B>> for Storage<A>
+    where   
+        A: StorageUnit,
+        B: StorageUnit,
+    {
+        fn partial_cmp(&self, rhs: &Storage<B>) -> Option<Ordering>{
+            self.bytes.partial_cmp(&rhs.bytes)
+        }
+    }
+
+    macro_rules! impl_ops {
+        ($($trait:ident, $fun:ident ),+) => {
+            $(
+                impl<A, B> ::std::ops::$trait<Storage<B>> for Storage<A>
+                where   
+                    A: StorageUnit,
+                    B: StorageUnit,
+                {
+                    type Output = Storage<A>;
+                    fn $fun(self, rhs: Storage<B>) -> Storage<A> {
+                        Storage {
+                            bytes: self.bytes.$fun(rhs.bytes),
+                            unit: PhantomData
+                        }
+                    }
+                }
+            )+
+        }
+    }
+
+    macro_rules! mk_units {
+        ($($name:ident, $long_name:expr, $short_name:expr, $bytes:expr),+) => {
+            $(
+                #[derive(Copy, Clone, Debug, Eq, PartialEq)]
+                pub struct $name;
+
+                impl StorageUnit for $name {
+                    const NAME: &'static str = $long_name;
+                    const SHORT_NAME: &'static str = $short_name;
+                    const BYTES_PER_UNIT: usize = $bytes;
+                }
+            )+
+        }
+    }
+
+    impl_ops! {
+        Add, add,
+        Sub, sub,
+        Div, div,
+        Mul, mul
+    }
+
+    mk_units!{
+        Bytes,     "bytes"    , "B"  , 1,
+        Kilobytes, "kilobytes", "KB" , 1_000,
+        Kibibytes, "kibibytes", "KiB", 1_024,
+        Megabytes, "megabytes", "MB" , 1_000_000,
+        Mebibytes, "mebibytes", "MiB", 1_048_576,
+        Gigabytes, "gigabytes", "GB" , 1_000_000_000,
+        Gibibytes, "gibibytes", "GiB", 1_073_741_824
+    }
+
+    impl<U: StorageUnit> FromStr for Storage<U> {
+        type Err = ParseError;
+        fn from_str(s: &str) -> Result<Self, Self::Err> {
+            let num_part = s.trim_matches(|c: char| !c.is_numeric()).trim();
+            let unit_part = 
+                s.trim_matches(char::is_numeric).trim()
+                // NOTE: could save a string allocation by matching patterns 
+                //       like `"B" | "b"`, but that ends up looking much uglier
+                //       and this shouldn't be in the hot path...
+                 .to_lowercase(); 
+            let num: usize = parse_number(num_part)?;
+            match unit_part.as_ref() {
+                "b"   => Ok(Storage::<Bytes>::from(num).into::<U>()),
+                "kb"  => Ok(Storage::<Kilobytes>::from(num).into::<U>()),
+                "kib" => Ok(Storage::<Kibibytes>::from(num).into::<U>()),
+                "mb"  => Ok(Storage::<Megabytes>::from(num).into::<U>()),
+                "mib" => Ok(Storage::<Mebibytes>::from(num).into::<U>()),
+                "gb"  => Ok(Storage::<Gigabytes>::from(num).into::<U>()),
+                "gib" => Ok(Storage::<Gibibytes>::from(num).into::<U>()),
+                unit => {
+                    error!("invalid storage unit '{}'", unit);
+                    Err(ParseError::InvalidUnit)
+                }
+            }
+        }
+    }
+
+    #[cfg(test)]
+    mod tests {
+        use super::*;
+
+        #[test]
+        fn is_zero_cost() {
+            use std::mem::size_of;
+            assert_eq!(
+                size_of::<Storage<Bytes>>(), size_of::<usize>()
+            );
+            assert_eq!(
+                size_of::<Storage<Kilobytes>>(), size_of::<usize>()
+            );
+            assert_eq!(
+                size_of::<Storage<Megabytes>>(), size_of::<usize>()
+            );
+            assert_eq!(
+                size_of::<Storage<Gigabytes>>(), size_of::<usize>()
+            );
+        }
+
+        #[test]
+        fn parsing_simple() {
+            assert_eq!(
+                "15 GB".parse::<Storage<Gigabytes>>()
+                       .expect("parse"),
+                Storage::<Gigabytes>::from(15)
+            );
+            assert_eq!(
+                "15 GiB".parse::<Storage<Gibibytes>>()
+                       .expect("parse"),
+                Storage::<Gibibytes>::from(15)
+            );
+        }
+
+
+        #[test]
+        fn parsing_does_unit_conversions() {
+            assert_eq!(
+                "1024 B".parse::<Storage<Kibibytes>>()
+                       .expect("parse"),
+                Storage::<Kibibytes>::from(1)
+            );
+
+            assert_eq!(
+                "4096 KiB".parse::<Storage<Kibibytes>>()
+                       .expect("parse"),
+                Storage::<Mebibytes>::from(4)
+            );
+        }
+    }
+
+
 }
