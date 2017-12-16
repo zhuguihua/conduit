@@ -101,19 +101,23 @@ where
 {
     type Err = ParseError;
     fn from_str(s: &str) -> Result<Self, Self::Err> {
+        // ignore leading + trailing whitespace.
+        let s = s.trim();
         // XXX: this is kinda janky, what we really need is just like an 
         //      iterator-oriented LL(1) parser...
-        // XXX: also we dont support hex because `is_numeric` will gobble up 
-        //      the 'b's in *bytes...
-        let num_part = s.trim_matches(|c: char| !c.is_digit(10)).trim();
-        let unit_part = 
+        let num_part = 
+            // XXX: also we dont support hex because `is_numeric` will gobble up 
+            //      the 'b's in *bytes...
+            s.trim_matches(|c: char| !c.is_digit(10))
+             .trim(); // trim again to skip any interstital whitespace.
+        let unit_part: String = 
             s.trim_matches(|c: char| !c.is_alphabetic())
             // NOTE: could save a string allocation by matching patterns 
             //       like `"B" | "b"`, but that ends up looking much uglier
             //       and this shouldn't be in the hot path...
-                .to_lowercase(); 
+             .to_lowercase(); 
         let num: usize = parse_number(num_part)?;
-        match unit_part.as_ref() {
+        match unit_part[..].trim() {
             "b"   => Ok(Storage::<Bytes>::from(num).into::<U>()),
             "kb"  => Ok(Storage::<Kilobytes>::from(num).into::<U>()),
             "mb"  => Ok(Storage::<Megabytes>::from(num).into::<U>()),
@@ -221,10 +225,6 @@ mod tests {
                   .expect("parse ' 15 gb '"),
             Storage::<Gigabytes>::from(15)
         );
-        assert_eq!(
-            " 1 5gb ".parse::<Storage<Gigabytes>>()
-                  .expect("parse ' 15 gb '"),
-            Storage::<Gigabytes>::from(15)
-        );
+
     }
 }
