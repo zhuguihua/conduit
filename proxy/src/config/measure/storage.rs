@@ -216,5 +216,15 @@ mod tests {
                   .expect("parse '15 gb '"),
             Storage::<Gigabytes>::from(15)
         );
+        assert_eq!(
+            " 15 gb ".parse::<Storage<Gigabytes>>()
+                  .expect("parse ' 15 gb '"),
+            Storage::<Gigabytes>::from(15)
+        );
+        assert_eq!(
+            " 1 5gb ".parse::<Storage<Gigabytes>>()
+                  .expect("parse ' 15 gb '"),
+            Storage::<Gigabytes>::from(15)
+        );
     }
 }
