@@ -101,9 +101,13 @@ where
 {
     type Err = ParseError;
     fn from_str(s: &str) -> Result<Self, Self::Err> {
-        let num_part = s.trim_matches(|c: char| !c.is_numeric()).trim();
+        // XXX: this is kinda janky, what we really need is just like an 
+        //      iterator-oriented LL(1) parser...
+        // XXX: also we dont support hex because `is_numeric` will gobble up 
+        //      the 'b's in *bytes...
+        let num_part = s.trim_matches(|c: char| !c.is_digit(10)).trim();
         let unit_part = 
-            s.trim_matches(char::is_numeric).trim()
+            s.trim_matches(|c: char| !c.is_alphabetic())
             // NOTE: could save a string allocation by matching patterns 
             //       like `"B" | "b"`, but that ends up looking much uglier
             //       and this shouldn't be in the hot path...
