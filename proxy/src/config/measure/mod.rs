@@ -159,8 +159,15 @@ macro_rules! mk_units {
     }
 }
 
+/// Trait representing a measurement unit.
 pub trait Unit {
+    /// The corresponding type measurable with this unit.
     type Measure;
+    /// Representation of a value measured by this unit.
+    /// 
+    /// This must be the same as the type used internally by 
+    /// `Self::Measure`.
+    // TODO: if `Measure` was a trait as well, the `Repr` type could go th
     type Repr;
     const NAME: &'static str;
     const SHORT_NAME: &'static str;
