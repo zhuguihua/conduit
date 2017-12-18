@@ -1,3 +1,81 @@
+macro_rules! impl_measure {
+    (measure: $measure:ident, base_unit: $base_unit:ident) => {
+
+        impl_ops! { measure: $measure, base_unit: $base_unit =>
+            Add, add,
+            Sub, sub,
+            Div, div,
+            Mul, mul
+        }
+
+        impl<U> ::std::fmt::Display for $measure<U>
+        where 
+            U: Unit<Measure=$measure<U>>
+        {
+            fn fmt(&self, f: &mut ::std::fmt::Formatter) -> ::std::fmt::Result {
+                let float_value = 
+                    (self.$base_unit as f64) / (U::BASE_UNITS_PER_UNIT as f64);
+
+                write!(f,
+                    "{number} {name}{plural}",
+                    number=float_value,
+                    name=U::NAME,
+                    plural=if float_value == 1f64 { "" } else { "s" }
+                )
+            }
+        }
+
+        impl<U> From<usize> for $measure<U>
+        where
+            U: Unit<Measure=$measure<U>>,
+        {
+            fn from(u: usize) -> Self {
+                Self {
+                    $base_unit: u * U::BASE_UNITS_PER_UNIT,
+                    unit: PhantomData
+                }
+            }
+        }
+
+        impl<A> $measure<A> 
+        where 
+            A: Unit<Measure=$measure<A>>
+        {
+            pub fn into<B>(self) -> $measure<B>
+            where
+                B: Unit<Measure=$measure<B>>
+            {
+                $measure {
+                    $base_unit: self.$base_unit,
+                    unit: PhantomData,
+                }
+            }
+        }
+
+        impl<A, B> PartialEq<$measure<B>> for $measure<A>
+        where   
+            A: Unit<Measure=$measure<A>>,
+            B: Unit<Measure=$measure<B>>,
+        {
+            fn eq(&self, rhs: &$measure<B>) -> bool{
+                self.$base_unit == rhs.$base_unit
+            }
+        }
+
+        impl<A, B> PartialOrd<$measure<B>> for $measure<A>
+        where   
+            A: Unit<Measure=$measure<A>>,
+            B: Unit<Measure=$measure<B>>,
+        {
+            fn partial_cmp(&self, rhs: &$measure<B>) 
+                          -> Option<::std::cmp::Ordering>
+            {
+                self.$base_unit.partial_cmp(&rhs.$base_unit)
+            }
+        }
+    }
+}
+
 macro_rules! impl_ops {
     (
         measure: $measure:ident, base_unit: $base_unit:ident => 

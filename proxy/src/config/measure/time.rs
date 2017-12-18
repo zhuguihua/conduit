@@ -12,6 +12,8 @@ where
     unit: PhantomData<U>,
 }
 
+
+
 mk_units!{ measure: Time =>
     // NOTE: we probably don't care about picoseconds here...
     Nanoseconds , Ns , "nanosecond" , 1,
@@ -23,9 +25,4 @@ mk_units!{ measure: Time =>
 
 }
 
-impl_ops! { measure: Time, base_unit: ns =>
-    Add, add,
-    Sub, sub,
-    Div, div,
-    Mul, mul
-}
+impl_measure! { measure: Time, base_unit: ns }

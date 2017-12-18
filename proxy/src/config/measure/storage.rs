@@ -1,5 +1,3 @@
-use std::cmp::Ordering;
-use std::fmt;
 use std::str::FromStr;
 use std::marker::PhantomData;
 use ::config::{parse_number, ParseError};
@@ -17,70 +15,6 @@ where
 
 // ===== impl Storage =====
 
-impl<U> fmt::Display for Storage<U>
-where 
-    U: Unit<Measure=Storage<U>>
-{
-    fn fmt(&self, f: &mut fmt::Formatter) -> fmt::Result {
-        let float_value = 
-            (self.bytes as f64) / (U::BASE_UNITS_PER_UNIT as f64);
-
-        write!(f,
-            "{number} {name}{plural}",
-            number=float_value,
-            name=U::NAME,
-            plural=if float_value == 1f64 { "" } else { "s" }
-        )
-    }
-}
-
-impl<U> From<usize> for Storage<U>
-where
-    U: Unit<Measure=Storage<U>>,
-{
-    fn from(u: usize) -> Self {
-        Self {
-            bytes: u * U::BASE_UNITS_PER_UNIT,
-            unit: PhantomData
-        }
-    }
-}
-
-impl<A> Storage<A> 
-where 
-    A: Unit<Measure=Storage<A>>
-{
-    pub fn into<B>(self) -> Storage<B>
-    where
-        B: Unit<Measure=Storage<B>>
-    {
-        Storage {
-            bytes: self.bytes,
-            unit: PhantomData,
-        }
-    }
-}
-
-impl<A, B> PartialEq<Storage<B>> for Storage<A>
-where   
-    A: Unit<Measure=Storage<A>>,
-    B: Unit<Measure=Storage<B>>,
-{
-    fn eq(&self, rhs: &Storage<B>) -> bool{
-        self.bytes == rhs.bytes
-    }
-}
-
-impl<A, B> PartialOrd<Storage<B>> for Storage<A>
-where   
-    A: Unit<Measure=Storage<A>>,
-    B: Unit<Measure=Storage<B>>,
-{
-    fn partial_cmp(&self, rhs: &Storage<B>) -> Option<Ordering>{
-        self.bytes.partial_cmp(&rhs.bytes)
-    }
-}
-
 mk_units!{ measure: Storage =>
     Bytes    , B , "byte"      , 1,
     Kilobytes, KB, "kilobyte"  , 1_024,
@@ -88,12 +22,7 @@ mk_units!{ measure: Storage =>
     Gigabytes, GB, "gigabyte"  , 1_073_741_824
 }
 
-impl_ops! { measure: Storage, base_unit: bytes =>
-    Add, add,
-    Sub, sub,
-    Div, div,
-    Mul, mul
-}
+impl_measure! { measure: Storage, base_unit: bytes }
 
 impl<U> FromStr for Storage<U> 
 where 
