@@ -81,18 +81,18 @@ where
     }
 }
 
+mk_units!{ measure: Storage =>
+    Bytes    , B , "byte"      , 1,
+    Kilobytes, KB, "kilobyte"  , 1_024,
+    Megabytes, MB, "megabyte"  , 1_048_576,
+    Gigabytes, GB, "gigabyte"  , 1_073_741_824
+}
+
 impl_ops! { measure: Storage, base_unit: bytes =>
     Add, add,
     Sub, sub,
     Div, div,
     Mul, mul
-}
-
-mk_units!{ Storage =>
-    Bytes    , "bytes"    , "B" , 1,
-    Kilobytes, "kilobytes", "KB", 1_024,
-    Megabytes, "megabytes", "MB", 1_048_576,
-    Gigabytes, "gigabytes", "GB", 1_073_741_824
 }
 
 impl<U> FromStr for Storage<U> 

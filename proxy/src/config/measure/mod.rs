@@ -12,7 +12,7 @@ macro_rules! impl_ops {
                 type Output = Self;
                 fn $fun(self, rhs: $measure<B>) -> Self {
                     Self {
-                        bytes: self.$base_unit.$fun(rhs.$base_unit),
+                        $base_unit: self.$base_unit.$fun(rhs.$base_unit),
                         unit: PhantomData
                     }
                 }
@@ -23,17 +23,19 @@ macro_rules! impl_ops {
 
 macro_rules! mk_units {
     (
-        $measure:ident => 
-        $($name:ident, $long_name:expr, $short_name:expr, $base_per:expr),+
+        measure: $measure:ident => 
+        $($name:ident, $short_name:ident, $long_name:expr, $base_per:expr),+
     ) => {
         $(
+            pub type $short_name = $measure<$name>;
+
             #[derive(Copy, Clone, Debug, Eq, PartialEq)]
             pub struct $name;
 
             impl Unit for $name {
                 type Measure = $measure<$name>;
                 const NAME: &'static str = $long_name;
-                const SHORT_NAME: &'static str = $short_name;
+                const SHORT_NAME: &'static str = stringify!($short_name);
                 const BASE_UNITS_PER_UNIT: usize = $base_per;
             }
         )+
