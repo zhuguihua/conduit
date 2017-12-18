@@ -140,11 +140,25 @@ macro_rules! mk_units {
     };
     (
         $measure:ident : $repr:ty => 
+        $($name:ident, $short_name:ident, $long_name:ident, $base_per:expr),+
+    ) => {
+        mk_units_inner! {
+            $measure : $repr, stringify!($measure) => 
+            $($name, $short_name, stringify!($long_name), $base_per),+
+        }
+    };
+}
+// factored out so we can stringify more eagerly for making doc comments.
+macro_rules! mk_units_inner {
+    (
+        $measure:ident : $repr:ty, $smeasure:expr => 
         $($name:ident, $short_name:ident, $long_name:expr, $base_per:expr),+
     ) => {
         $(
             pub type $short_name = $measure<$name>;
 
+            #[doc = "Unit representing a measurement of "] 
+            #[doc = $smeasure] #[doc = " in "] #[doc = $long_name] #[doc = "s."]
             #[derive(Copy, Clone, Debug, Eq, PartialEq)]
             pub struct $name;
 
@@ -157,7 +171,7 @@ macro_rules! mk_units {
             }
         )+
     }
-}
+} 
 
 /// Trait representing a measurement unit.
 pub trait Unit {
