@@ -3,18 +3,9 @@ use std::marker::PhantomData;
 
 use super::Unit;
 
-#[derive(Copy, Clone, Debug)]
-pub struct Time<U>
-where
-    U: Unit<Measure=Time<U>>,
-{
-    ns: usize,
-    unit: PhantomData<U>,
-}
+mk_measure! { pub struct Time(ns: u64) }
 
-
-
-mk_units!{ measure: Time =>
+mk_units!{ Time: u64 =>
     // NOTE: we probably don't care about picoseconds here...
     Nanoseconds , Ns , "nanosecond" , 1,
     Microseconds, Us , "microsecond", 1_000,
@@ -25,4 +16,3 @@ mk_units!{ measure: Time =>
 
 }
 
-impl_measure! { measure: Time, base_unit: ns }

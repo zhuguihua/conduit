@@ -4,29 +4,20 @@ use ::config::{parse_number, ParseError};
 
 use super::Unit;
 
-#[derive(Copy, Clone, Debug, Eq, Ord)]
-pub struct Storage<U>
-where
-    U: Unit<Measure=Storage<U>>,
-{
-    bytes: usize,
-    unit: PhantomData<U>,
+
+mk_measure! { pub struct Storage(bytes) }
+
+mk_units!{ Storage =>
+    Bytes    , B , byte      , 1,
+    Kilobytes, KB, kilobyte  , 1_024,
+    Megabytes, MB, megabyte  , 1_048_576,
+    Gigabytes, GB, gigabyte  , 1_073_741_824
 }
 
-// ===== impl Storage =====
-
-mk_units!{ measure: Storage =>
-    Bytes    , B , "byte"      , 1,
-    Kilobytes, KB, "kilobyte"  , 1_024,
-    Megabytes, MB, "megabyte"  , 1_048_576,
-    Gigabytes, GB, "gigabyte"  , 1_073_741_824
-}
-
-impl_measure! { measure: Storage, base_unit: bytes }
 
 impl<U> FromStr for Storage<U> 
 where 
-    U: Unit<Measure=Storage<U>>
+    U: Unit<Measure=Storage<U>, Repr=u64>,
 {
     type Err = ParseError;
     fn from_str(s: &str) -> Result<Self, Self::Err> {
@@ -45,7 +36,7 @@ where
             //       like `"B" | "b"`, but that ends up looking much uglier
             //       and this shouldn't be in the hot path...
              .to_lowercase(); 
-        let num: usize = parse_number(num_part)?;
+        let num: u64 = parse_number(num_part)?;
         match unit_part[..].trim() {
             "b"   => Ok(Storage::<Bytes>::from(num).into::<U>()),
             "kb"  => Ok(Storage::<Kilobytes>::from(num).into::<U>()),
@@ -67,16 +58,16 @@ mod tests {
     fn is_zero_cost() {
         use std::mem::size_of;
         assert_eq!(
-            size_of::<Storage<Bytes>>(), size_of::<usize>()
+            size_of::<Storage<Bytes>>(), size_of::<u64>()
         );
         assert_eq!(
-            size_of::<Storage<Kilobytes>>(), size_of::<usize>()
+            size_of::<Storage<Kilobytes>>(), size_of::<u64>()
         );
         assert_eq!(
-            size_of::<Storage<Megabytes>>(), size_of::<usize>()
+            size_of::<Storage<Megabytes>>(), size_of::<u64>()
         );
         assert_eq!(
-            size_of::<Storage<Gigabytes>>(), size_of::<usize>()
+            size_of::<Storage<Gigabytes>>(), size_of::<u64>()
         );
     }
 

@@ -1,7 +1,37 @@
-macro_rules! impl_measure {
-    (measure: $measure:ident, base_unit: $base_unit:ident) => {
+macro_rules! mk_measure {
+    (struct $measure:ident($base_unit:ident))=> {
+        mk_measure!{ struct $measure($base_unit: u64) }
+    };
+    (pub struct $measure:ident($base_unit:ident)) => {
+        mk_measure!{ pub struct $measure($base_unit: u64) }
+    };
+    (pub struct $measure:ident($base_unit:ident:$repr:ty)) => {
+        #[derive(Copy, Clone, Debug)]
+        pub struct $measure<U>
+        where
+            U: Unit<Measure=$measure<U>>,
+        {
+            $base_unit: $repr,
+            unit: PhantomData<U>,
+        }
 
-        impl_ops! { measure: $measure, base_unit: $base_unit =>
+        mk_measure!{ @impl $measure($base_unit:$repr) }
+    };
+    (struct $measure:ident($base_unit:ident:$repr:ty)) => {
+        #[derive(Copy, Clone, Debug)]
+        struct $measure<U>
+        where
+            U: Unit<Measure=$measure<U>>,
+        {
+            $base_unit: $repr,
+            unit: PhantomData<U>,
+        }
+
+        mk_measure!{ @impl $measure($base:$repr) }
+    };
+
+    (@impl $measure:ident($base_unit:ident:$repr:ty))=> {
+        impl_ops! { measure: $measure, base_unit: $base_unit: $repr =>
             Add, add,
             Sub, sub,
             Div, div,
@@ -10,7 +40,7 @@ macro_rules! impl_measure {
 
         impl<U> ::std::fmt::Display for $measure<U>
         where 
-            U: Unit<Measure=$measure<U>>
+            U: Unit<Measure=$measure<U>, Repr=$repr>,
         {
             fn fmt(&self, f: &mut ::std::fmt::Formatter) -> ::std::fmt::Result {
                 let float_value = 
@@ -25,11 +55,11 @@ macro_rules! impl_measure {
             }
         }
 
-        impl<U> From<usize> for $measure<U>
+        impl<U> From<$repr> for $measure<U>
         where
-            U: Unit<Measure=$measure<U>>,
+            U: Unit<Measure=$measure<U>, Repr=$repr>,
         {
-            fn from(u: usize) -> Self {
+            fn from(u: $repr) -> Self {
                 Self {
                     $base_unit: u * U::BASE_UNITS_PER_UNIT,
                     unit: PhantomData
@@ -39,11 +69,11 @@ macro_rules! impl_measure {
 
         impl<A> $measure<A> 
         where 
-            A: Unit<Measure=$measure<A>>
+            A: Unit<Measure=$measure<A>, Repr=$repr>,
         {
             pub fn into<B>(self) -> $measure<B>
             where
-                B: Unit<Measure=$measure<B>>
+                B: Unit<Measure=$measure<B>, Repr=$repr>,
             {
                 $measure {
                     $base_unit: self.$base_unit,
@@ -54,8 +84,8 @@ macro_rules! impl_measure {
 
         impl<A, B> PartialEq<$measure<B>> for $measure<A>
         where   
-            A: Unit<Measure=$measure<A>>,
-            B: Unit<Measure=$measure<B>>,
+            A: Unit<Measure=$measure<A>, Repr=$repr>,
+            B: Unit<Measure=$measure<B>, Repr=$repr>,
         {
             fn eq(&self, rhs: &$measure<B>) -> bool{
                 self.$base_unit == rhs.$base_unit
@@ -64,8 +94,8 @@ macro_rules! impl_measure {
 
         impl<A, B> PartialOrd<$measure<B>> for $measure<A>
         where   
-            A: Unit<Measure=$measure<A>>,
-            B: Unit<Measure=$measure<B>>,
+            A: Unit<Measure=$measure<A>, Repr=$repr>,
+            B: Unit<Measure=$measure<B>, Repr=$repr>,
         {
             fn partial_cmp(&self, rhs: &$measure<B>) 
                           -> Option<::std::cmp::Ordering>
@@ -78,14 +108,14 @@ macro_rules! impl_measure {
 
 macro_rules! impl_ops {
     (
-        measure: $measure:ident, base_unit: $base_unit:ident => 
+        measure: $measure:ident, base_unit: $base_unit:ident: $repr:ty => 
         $($trait:ident, $fun:ident ),+
     ) => {
         $(
             impl<A, B> ::std::ops::$trait<$measure<B>> for $measure<A>
             where   
-                A: $crate::config::measure::Unit<Measure=$measure<A>>,
-                B: $crate::config::measure::Unit<Measure=$measure<B>>,
+                A: Unit<Measure=$measure<A>, Repr=$repr>,
+                B: Unit<Measure=$measure<B>>,
             {
                 type Output = Self;
                 fn $fun(self, rhs: $measure<B>) -> Self {
@@ -101,7 +131,15 @@ macro_rules! impl_ops {
 
 macro_rules! mk_units {
     (
-        measure: $measure:ident => 
+        $measure:ident => 
+        $($name:ident, $short_name:ident, $long_name:ident, $base_per:expr),+
+    ) => {
+        mk_units! { $measure: u64 => 
+            $($name, $short_name, $long_name, $base_per),+
+        }
+    };
+    (
+        $measure:ident : $repr:ty => 
         $($name:ident, $short_name:ident, $long_name:expr, $base_per:expr),+
     ) => {
         $(
@@ -112,9 +150,10 @@ macro_rules! mk_units {
 
             impl Unit for $name {
                 type Measure = $measure<$name>;
-                const NAME: &'static str = $long_name;
+                type Repr = $repr;
+                const NAME: &'static str = stringify!($long_name);
                 const SHORT_NAME: &'static str = stringify!($short_name);
-                const BASE_UNITS_PER_UNIT: usize = $base_per;
+                const BASE_UNITS_PER_UNIT: $repr = $base_per;
             }
         )+
     }
@@ -122,9 +161,10 @@ macro_rules! mk_units {
 
 pub trait Unit {
     type Measure;
+    type Repr;
     const NAME: &'static str;
     const SHORT_NAME: &'static str;
-    const BASE_UNITS_PER_UNIT: usize;
+    const BASE_UNITS_PER_UNIT: Self::Repr;
 }
 
 pub mod storage;
