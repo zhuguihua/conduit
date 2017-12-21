@@ -8,10 +8,10 @@ use super::Unit;
 mk_measure! { pub struct Storage(bytes) }
 
 mk_units!{ Storage =>
-    Bytes    , B , byte      , 1,
-    Kilobytes, KB, kilobyte  , 1_024,
-    Megabytes, MB, megabyte  , 1_048_576,
-    Gigabytes, GB, gigabyte  , 1_073_741_824
+    Bytes    , B , bytes      , 1,
+    Kilobytes, KB, kilobytes  , 1_024,
+    Megabytes, MB, megabytes  , 1_048_576,
+    Gigabytes, GB, gigabytes  , 1_073_741_824
 }
 
 
@@ -145,6 +145,14 @@ mod tests {
                   .expect("parse ' 15 gb '"),
             Storage::<Gigabytes>::from(15)
         );
+    }
 
+
+    #[test]
+    fn integer_conversions_dsl() {
+        assert_eq!(10.bytes(), Storage::<Bytes>::from(10));
+        assert_eq!(22.kilobytes(), Storage::<Kilobytes>::from(22));
+        assert_eq!(90.megabytes(), Storage::<Megabytes>::from(90));
+        assert_eq!(128.gigabytes(), Storage::<Gigabytes>::from(128));
     }
 }

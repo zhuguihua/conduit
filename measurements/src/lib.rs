@@ -50,12 +50,15 @@ macro_rules! mk_measure {
             fn fmt(&self, f: &mut ::std::fmt::Formatter) -> ::std::fmt::Result {
                 let float_value = 
                     (self.$base_unit as f64) / (U::BASE_UNITS_PER_UNIT as f64);
-
+                let plural_idx = if float_value == 1f64 { 
+                    U::NAME.len() - 1
+                } else {
+                    U::NAME.len()
+                };
                 write!(f,
-                    "{number} {name}{plural}",
+                    "{number} {name}",
                     number=float_value,
-                    name=U::NAME,
-                    plural=if float_value == 1f64 { "" } else { "s" }
+                    name=&U::NAME[..plural_idx],
                 )
             }
         }
@@ -136,41 +139,63 @@ macro_rules! impl_ops {
 #[macro_export]
 macro_rules! mk_units {
     (
-        $measure:ident => 
+        $measure:ident, $to_measure:ident => 
         $($name:ident, $short_name:ident, $long_name:ident, $base_per:expr),+
     ) => {
-        mk_units! { $measure: u64 => 
+        mk_units! { $measure: u64, $to_measure => 
             $($name, $short_name, $long_name, $base_per),+
         }
     };
     (
-        $measure:ident : $repr:ty => 
+        $measure:ident : $repr:ty, $to_measure:ident => 
         $($name:ident, $short_name:ident, $long_name:ident, $base_per:expr),+
     ) => {
         mk_units_inner! {
-            $measure : $repr, stringify!($measure) => 
-            $($name, $short_name, stringify!($long_name), $base_per),+
+            $measure : $repr, stringify!($measure), $to_measure => 
+            $(
+                $name, $short_name, $long_name, stringify!($long_name), 
+                $base_per
+            ),+
         }
     };
 }
 // factored out so we can stringify more eagerly for making doc comments.
 macro_rules! mk_units_inner {
     (
-        $measure:ident : $repr:ty, $smeasure:expr => 
-        $($name:ident, $short_name:ident, $long_name:expr, $base_per:expr),+
+        $measure:ident : $repr:ty, $smeasure:expr, $to_measure:ident => 
+        $(
+            $name:ident, $short_name:ident, $long_name:ident, $slong_name:expr,
+            $base_per:expr
+        ),+
     ) => {
+
+        #[doc = "Trait for conversions to "] #[doc = $smeasure] #[doc = "."]
+        pub trait $to_measure {
+            $(
+                fn $long_name(self) -> $measure<$name>;
+            )+
+        }
+
+        impl $to_measure for $repr {
+            $(
+                fn $long_name(self) -> $measure<$name> {
+                    $measure::<$name>::from(self)
+                }
+            )+
+        }
         $(
             pub type $short_name = $measure<$name>;
 
             #[doc = "Unit representing a measurement of "] 
-            #[doc = $smeasure] #[doc = " in "] #[doc = $long_name] #[doc = "s."]
+            #[doc = $smeasure] #[doc = " in "] #[doc = $slong_name] 
+            #[doc = "s."]
             #[derive(Copy, Clone, Debug, Eq, PartialEq)]
             pub struct $name;
 
             impl $crate::Unit for $name {
                 type Measure = $measure<$name>;
                 type Repr = $repr;
-                const NAME: &'static str = stringify!($long_name);
+                const NAME: &'static str = $slong_name;
                 const SHORT_NAME: &'static str = stringify!($short_name);
                 const BASE_UNITS_PER_UNIT: $repr = $base_per;
             }

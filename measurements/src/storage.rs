@@ -6,7 +6,7 @@ use super::{Unit, MeasureError};
 
 mk_measure! { pub struct Storage(bytes) }
 
-mk_units!{ Storage =>
+mk_units!{ Storage, ToStorage =>
     Bytes    , B , byte      , 1,
     Kilobytes, KB, kilobyte  , 1_024,
     Megabytes, MB, megabyte  , 1_048_576,
