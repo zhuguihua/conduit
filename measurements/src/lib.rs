@@ -71,6 +71,7 @@ macro_rules! mk_measure {
         where
             U: $crate::Unit<Measure=$measure<U>, Repr=$repr>,
         {
+            #[inline(always)]
             fn from(u: $repr) -> Self {
                 Self {
                     $base_unit: u * U::BASE_UNITS_PER_UNIT,
@@ -79,11 +80,22 @@ macro_rules! mk_measure {
             }
         }
 
+        impl<U> Into<$repr> for $measure<U>
+        where
+            U: $crate::Unit<Measure=$measure<U>, Repr=$repr>,
+        {
+            #[inline(always)]
+            fn into(self) -> $repr {
+                self.$base_unit
+            }
+        }
+
         impl<A> $measure<A> 
         where 
             A: $crate::Unit<Measure=$measure<A>, Repr=$repr>,
         {
-            pub fn into<B>(self) -> $measure<B>
+            #[inline]
+            pub fn as_unit<B>(self) -> $measure<B>
             where
                 B: $crate::Unit<Measure=$measure<B>, Repr=$repr>,
             {
@@ -242,7 +254,7 @@ macro_rules! mk_units_inner {
                 match unit_part[..].trim() {
                     $(
                        $($extra_name |)* $short_name | $slong_name =>
-                            Ok($measure::<$name>::from(num).into::<U>()),
+                            Ok($measure::<$name>::from(num).as_unit::<U>()),
                     )+
                     _    => Err($crate::MeasureError::InvalidUnit),
                 }
