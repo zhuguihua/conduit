@@ -74,7 +74,7 @@ macro_rules! mk_measure {
             fn from(u: $repr) -> Self {
                 Self {
                     $base_unit: u * U::BASE_UNITS_PER_UNIT,
-                    unit: PhantomData
+                    unit: ::std::marker::PhantomData,
                 }
             }
         }
@@ -133,7 +133,7 @@ macro_rules! impl_ops {
                 fn $fun(self, rhs: $measure<B>) -> Self {
                     Self {
                         $base_unit: self.$base_unit.$fun(rhs.$base_unit),
-                        unit: PhantomData
+                        unit: ::std::marker::PhantomData
                     }
                 }
             }
@@ -144,21 +144,42 @@ macro_rules! impl_ops {
 macro_rules! mk_units {
     (
         $measure:ident, $to_measure:ident => 
-        $($name:ident, $short_name:ident, $long_name:ident, $base_per:expr),+
+        $(
+            $name:ident { 
+                base: $base_per:expr,
+                long: $long_name:ident, 
+                short: $short_name:expr, $($extra_name:expr),*
+            }
+        ),+
     ) => {
-        mk_units! { $measure: u64, $to_measure => 
-            $($name, $short_name, $long_name, $base_per),+
+        mk_units! { $measure : u64, $to_measure => 
+            $(
+            $name { 
+                base: $base_per,
+                long: $long_name,
+                short: $short_name, $($extra_name),*
+            }
+            ),+
         }
     };
     (
         $measure:ident : $repr:ty, $to_measure:ident => 
-        $($name:ident, $short_name:ident, $long_name:ident, $base_per:expr),+
+        $(
+            $name:ident { 
+                base: $base_per:expr,
+                long: $long_name:ident, 
+                short: $short_name:expr, $($extra_name:expr),*
+            }
+        ),+
     ) => {
         mk_units_inner! {
             $measure : $repr, stringify!($measure), $to_measure => 
             $(
-                $name, $short_name, $long_name, stringify!($long_name), 
-                $base_per
+                $name { 
+                    base: $base_per,
+                    long: $long_name, stringify!($long_name), 
+                    short: $short_name, $($extra_name),*
+                }
             ),+
         }
     };
@@ -168,8 +189,11 @@ macro_rules! mk_units_inner {
     (
         $measure:ident : $repr:ty, $smeasure:expr, $to_measure:ident => 
         $(
-            $name:ident, $short_name:ident, $long_name:ident, $slong_name:expr,
-            $base_per:expr
+            $name:ident { 
+                base: $base_per:expr,
+                long: $long_name:ident, $slong_name:expr,
+                short: $short_name:expr, $($extra_name:expr),* 
+            }
         ),+
     ) => {
 
@@ -187,8 +211,44 @@ macro_rules! mk_units_inner {
                 }
             )+
         }
+
+        impl<U> ::std::str::FromStr for $measure<U> 
+        where 
+            U: $crate::Unit<Measure=$measure<U>, Repr=$repr>,
+            $repr: ::std::str::FromStr,
+            $crate::MeasureError: From<<$repr as ::std::str::FromStr>::Err>
+        {
+            type Err = $crate::MeasureError;
+            fn from_str(s: &str) -> Result<Self, Self::Err> {
+                // ignore leading + trailing whitespace.
+                let s = s.trim();
+                // XXX: this is kinda janky, what we really need is just like 
+                //      an iterator-oriented LL(1) parser...
+                let num_part = 
+                    // XXX: also we dont support hex because `is_numeric` will 
+                    //      gobble up the 'b's in *bytes...
+                    s.trim_matches(|c: char| !c.is_digit(10))
+                    .trim(); // trim again to skip any interstital whitespace.
+                let unit_part: String = 
+                    s.trim_matches(|c: char| !c.is_alphabetic())
+                    // NOTE: could save a string allocation by matching 
+                    // patterns like `"B" | "b"`, but that's much harder to 
+                    // generate from a macro (and significantly uglier) and 
+                    // this shouldn't be in the hot path...
+                    .to_lowercase(); 
+                let num: u64 = num_part
+                    .parse()
+                    .map_err($crate::MeasureError::from)?;
+                match unit_part[..].trim() {
+                    $(
+                       $($extra_name |)* $short_name | $slong_name =>
+                            Ok($measure::<$name>::from(num).into::<U>()),
+                    )+
+                    _    => Err($crate::MeasureError::InvalidUnit),
+                }
+            }
+        }
         $(
-            pub type $short_name = $measure<$name>;
 
             #[doc = "Unit representing a measurement of "] 
             #[doc = $smeasure] #[doc = " in "] #[doc = $slong_name] 
@@ -200,7 +260,7 @@ macro_rules! mk_units_inner {
                 type Measure = $measure<$name>;
                 type Repr = $repr;
                 const NAME: &'static str = $slong_name;
-                const SHORT_NAME: &'static str = stringify!($short_name);
+                const SHORT_NAME: &'static str = $short_name;
                 const BASE_UNITS_PER_UNIT: $repr = $base_per;
             }
         )+
