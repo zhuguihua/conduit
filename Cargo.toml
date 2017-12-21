@@ -2,6 +2,7 @@
 members = [
   "codegen",
   "futures-mpsc-lossy",
+  "measurements",
   "proxy",
   "tower-router",
   "tower-grpc",
