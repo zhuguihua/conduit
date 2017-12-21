@@ -1,3 +1,7 @@
+#[cfg(test)]
+#[macro_use]
+extern crate quickcheck;
+
 use std::fmt;
 use std::num::ParseIntError;
 use std::error::Error;

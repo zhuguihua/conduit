@@ -7,10 +7,10 @@ use super::{Unit, MeasureError};
 mk_measure! { pub struct Storage(bytes) }
 
 mk_units!{ Storage, ToStorage =>
-    Bytes    , B , byte      , 1,
-    Kilobytes, KB, kilobyte  , 1_024,
-    Megabytes, MB, megabyte  , 1_048_576,
-    Gigabytes, GB, gigabyte  , 1_073_741_824
+    Bytes    , B , bytes     , 1,
+    Kilobytes, KB, kilobytes  , 1_024,
+    Megabytes, MB, megabytes  , 1_048_576,
+    Gigabytes, GB, gigabytes  , 1_073_741_824
 }
 
 
@@ -67,20 +67,64 @@ mod tests {
         );
     }
 
-    #[test]
-    fn parsing_simple() {
-        assert_eq!(
-            "15 GB".parse::<Storage<Gigabytes>>()
-                    .expect("parse"),
-            Storage::<Gigabytes>::from(15)
-        );
-        assert_eq!(
-            "15 MB".parse::<Storage<Megabytes>>()
-                    .expect("parse"),
-            Storage::<Megabytes>::from(15)
-        );
-    }
+    quickcheck!{
+        fn parsing_simple(u: u64) -> bool{
+            format!("{} B", u)
+                .parse::<Storage<Bytes>>()
+                .expect("parse") == Storage::<Bytes>::from(u) && 
+            format!("{} KB", u)
+                .parse::<Storage<Kilobytes>>()
+                .expect("parse") == Storage::<Kilobytes>::from(u) &&
+            format!("{} MB", u)
+                .parse::<Storage<Megabytes>>()
+                .expect("parse") == Storage::<Megabytes>::from(u) &&
+            format!("{} GB", u)
+                .parse::<Storage<Gigabytes>>()
+                .expect("parse") == Storage::<Gigabytes>::from(u)
+        }
 
+        fn parsing_is_case_insensitive(u: u64) -> bool {
+            format!("{} gb", u)
+                .parse::<Storage<Gigabytes>>()
+                .expect("parse 'gb'") == Storage::<Gigabytes>::from(u) &&
+            format!("{} gB", u)
+                .parse::<Storage<Gigabytes>>()
+                .expect("parse 'gB'") == Storage::<Gigabytes>::from(u) &&
+            format!("{} GB", u)
+                .parse::<Storage<Gigabytes>>()
+                .expect("parse 'GB'") == Storage::<Gigabytes>::from(u) &&
+            format!("{} gB", u)
+                .parse::<Storage<Gigabytes>>()
+                .expect("parse 'gB'") == Storage::<Gigabytes>::from(u)
+        }
+
+        fn parsing_handles_leading_and_trailing_whitespace(u: u64) -> bool {
+            format!("{} gb", u)
+                .parse::<Storage<Gigabytes>>()
+                .expect("parse 'n gb'") == Storage::<Gigabytes>::from(u) &&
+            format!(" {} gb", u)
+                .parse::<Storage<Gigabytes>>()
+                .expect("parse ' n gB'") == Storage::<Gigabytes>::from(u) &&
+            format!("{}gb", u)
+                .parse::<Storage<Gigabytes>>()
+                .expect("parse 'ngb'") == Storage::<Gigabytes>::from(u) &&
+            format!("{} gb ", u)
+                .parse::<Storage<Gigabytes>>()
+                .expect("parse 'n gb '") == Storage::<Gigabytes>::from(u) &&
+            format!(" {} gb ", u)
+                .parse::<Storage<Gigabytes>>()
+                .expect("parse ' n gb '") ==  Storage::<Gigabytes>::from(u)
+
+        }
+
+        fn integer_conversion_dsl(u: u64) -> bool {
+            u.bytes() == Storage::<Bytes>::from(u)         &&
+            u.kilobytes() == Storage::<Kilobytes>::from(u) && 
+            u.megabytes() == Storage::<Megabytes>::from(u) && 
+            u.gigabytes() == Storage::<Gigabytes>::from(u)
+ 
+        }
+    }
 
     #[test]
     fn parsing_does_unit_conversions() {
@@ -95,52 +139,5 @@ mod tests {
                     .expect("parse"),
             Storage::<Megabytes>::from(4)
         );
-    }
-
-
-    #[test]
-    fn parsing_is_case_insensitive() {
-        assert_eq!(
-            "15 gb".parse::<Storage<Gigabytes>>()
-                   .expect("parse"),
-            Storage::<Gigabytes>::from(15)
-        );
-        assert_eq!(
-            "15 gB".parse::<Storage<Megabytes>>()
-                    .expect("parse"),
-            "15 GB".parse::<Storage<Gigabytes>>()
-                   .expect("parse"),
-        );
-        assert_eq!(
-            "15 Gb".parse::<Storage<Megabytes>>()
-                    .expect("parse"),
-            "15 gb".parse::<Storage<Gigabytes>>()
-                   .expect("parse"),
-        );
-    }
-
-    #[test]
-    fn parsing_handles_leading_and_trailing_whitespace() {
-        assert_eq!(
-            " 15 GB".parse::<Storage<Gigabytes>>()
-                   .expect("parse ' 15 GB'"),
-            Storage::<Gigabytes>::from(15)
-        );
-        assert_eq!(
-            "15GB".parse::<Storage<Gigabytes>>()
-                  .expect("parse '15GB'"),
-            Storage::<Gigabytes>::from(15)
-        );
-        assert_eq!(
-            "15 gb ".parse::<Storage<Gigabytes>>()
-                  .expect("parse '15 gb '"),
-            Storage::<Gigabytes>::from(15)
-        );
-        assert_eq!(
-            " 15 gb ".parse::<Storage<Gigabytes>>()
-                  .expect("parse ' 15 gb '"),
-            Storage::<Gigabytes>::from(15)
-        );
-
     }
 }
