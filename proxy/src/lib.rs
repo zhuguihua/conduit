@@ -17,6 +17,7 @@ extern crate ipnet;
 extern crate libc;
 #[macro_use]
 extern crate log;
+extern crate measurements;
 extern crate ns_dns_tokio;
 extern crate ordermap;
 extern crate prost;

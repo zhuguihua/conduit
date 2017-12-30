@@ -40,6 +40,7 @@ futures-mpsc-lossy = { path = "../futures-mpsc-lossy" }
 tower-router       = { path = "../tower-router" }
 tower-grpc         = { path = "../tower-grpc" }
 tower-h2           = { path = "../tower-h2" }
+measurements       = { path = "../measurements" }
 
 [target.'cfg(target_os = "linux")'.dependencies]
 libc = "0.2"

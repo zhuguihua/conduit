@@ -7,9 +7,12 @@ use std::time::Duration;
 
 use url::{Host, HostAndPort, Url};
 
+use measurements::MeasureError;
+use measurements::storage::{Storage, Bytes};
+use measurements::time::{Time, Seconds};
+
 use convert::TryFrom;
 
-pub mod measure;
 
 // TODO:
 //
@@ -43,6 +46,7 @@ pub struct Config {
     pub control_host_and_port: HostAndPort,
 
     /// Event queue capacity.
+    // TODO: represent as Storage<Bytes>?
     pub event_buffer_capacity: usize,
 
     /// Interval after which to flush metrics.
@@ -123,8 +127,8 @@ pub struct TestEnv {
 
 // Environment variables to look at when loading the configuration
 const ENV_EVENT_BUFFER_CAPACITY: &str = "CONDUIT_PROXY_EVENT_BUFFER_CAPACITY";
-pub const ENV_METRICS_FLUSH_INTERVAL_SECS: &str = "CONDUIT_PROXY_METRICS_FLUSH_INTERVAL_SECS";
-const ENV_REPORT_TIMEOUT_SECS: &str = "CONDUIT_PROXY_REPORT_TIMEOUT_SECS";
+pub const ENV_METRICS_FLUSH_INTERVAL: &str = "CONDUIT_PROXY_METRICS_FLUSH_INTERVAL";
+const ENV_REPORT_TIMEOUT: &str = "CONDUIT_PROXY_REPORT_TIMEOUT";
 pub const ENV_PRIVATE_LISTENER: &str = "CONDUIT_PROXY_PRIVATE_LISTENER";
 pub const ENV_PRIVATE_FORWARD: &str = "CONDUIT_PROXY_PRIVATE_FORWARD";
 pub const ENV_PUBLIC_LISTENER: &str = "CONDUIT_PROXY_PUBLIC_LISTENER";
@@ -167,10 +171,10 @@ impl<'a> TryFrom<&'a Strings> for Config {
         let private_connect_timeout = parse(strings, ENV_PRIVATE_CONNECT_TIMEOUT, parse_number);
         let resolv_conf_path = strings.get(ENV_RESOLV_CONF);
         let control_host_and_port = parse(strings, ENV_CONTROL_URL, parse_url);
-        let event_buffer_capacity = parse(strings, ENV_EVENT_BUFFER_CAPACITY, parse_number);
-        let metrics_flush_interval_secs =
-            parse(strings, ENV_METRICS_FLUSH_INTERVAL_SECS, parse_number);
-        let report_timeout = parse(strings, ENV_REPORT_TIMEOUT_SECS, parse_number);
+        let event_buffer_capacity = parse(strings, ENV_EVENT_BUFFER_CAPACITY, parse_storage);
+        let metrics_flush_interval =
+            parse(strings, ENV_METRICS_FLUSH_INTERVAL, parse_duration);
+        let report_timeout = parse(strings, ENV_REPORT_TIMEOUT, parse_duration);
         let pod_name = strings.get(ENV_POD_NAME);
         let pod_namespace = strings.get(ENV_POD_NAMESPACE);
         let node_name = strings.get(ENV_NODE_NAME);
@@ -199,12 +203,20 @@ impl<'a> TryFrom<&'a Strings> for Config {
             control_host_and_port: control_host_and_port?
                 .unwrap_or_else(|| parse_url(DEFAULT_CONTROL_URL).unwrap()),
 
-            event_buffer_capacity: event_buffer_capacity?.unwrap_or(DEFAULT_EVENT_BUFFER_CAPACITY),
-            metrics_flush_interval:
-                Duration::from_secs(metrics_flush_interval_secs?
-                                        .unwrap_or(DEFAULT_METRICS_FLUSH_INTERVAL_SECS)),
-            report_timeout:
-                Duration::from_secs(report_timeout?.unwrap_or(DEFAULT_REPORT_TIMEOUT_SECS)),
+            event_buffer_capacity: event_buffer_capacity?
+                .map(|bytes| {
+                    let bytes_u64: u64 = bytes.into();
+                    bytes_u64 as usize
+                })
+                .unwrap_or(DEFAULT_EVENT_BUFFER_CAPACITY),
+            metrics_flush_interval: metrics_flush_interval?
+                .unwrap_or_else(|| 
+                    Duration::from_secs(DEFAULT_METRICS_FLUSH_INTERVAL_SECS)
+                ),
+            report_timeout: report_timeout?
+                .unwrap_or_else(|| 
+                    Duration::from_secs(DEFAULT_REPORT_TIMEOUT_SECS)
+                ),
             pod_name: pod_name?,
             pod_namespace: pod_namespace?,
             node_name: node_name?,
@@ -277,6 +289,26 @@ impl Strings for TestEnv {
 }
 
 // ===== Parsing =====
+
+impl From<MeasureError> for ParseError {
+    fn from(err: MeasureError) -> Self {
+        match err {
+            MeasureError::InvalidNumber(_) => ParseError::NotANumber,
+            MeasureError::InvalidUnit => ParseError::InvalidUnit,
+        }
+    }
+}
+
+fn parse_duration(s: &str) -> Result<Duration, ParseError> {
+    s.parse::<Time<Seconds>>()
+     .map(|secs| secs.into())
+     .map_err(ParseError::from)
+}
+
+fn parse_storage(s: &str) -> Result<Storage<Bytes>, ParseError> {
+    s.parse::<Storage<Bytes>>()
+     .map_err(ParseError::from)
+}
 
 fn parse_number<T>(s: &str) -> Result<T, ParseError> where T: FromStr {
     s.parse().map_err(|_| ParseError::NotANumber)
