@@ -8,9 +8,12 @@ import (
 
 	"github.com/runconduit/conduit/pkg/shell"
 	"k8s.io/client-go/rest"
+	"strings"
+	"regexp"
 )
 
 const kubernetesConfigFilePathEnvVariable = "KUBECONFIG"
+var httpPrefix = regexp.MustCompile(`https?://`)
 
 type KubernetesApi interface {
 	UrlFor(namespace string, extraPathStartingWithSlash string) (*url.URL, error)
@@ -37,7 +40,7 @@ func (k8s *kubernetesApi) UrlFor(namespace string, extraPathStartingWithSlash st
 	return generateKubernetesApiBaseUrlFor(k8s.apiSchemeHostAndPort, namespace, extraPathStartingWithSlash)
 }
 
-func NewK8sAPi(shell shell.Shell, k8sConfigFilesystemPathOverride string, apiHostAndPortOverride string) (KubernetesApi, error) {
+func NewK8sAPI(shell shell.Shell, k8sConfigFilesystemPathOverride string, apiHostAndPortOverride string) (KubernetesApi, error) {
 	kubeconfigEnvVar := os.Getenv(kubernetesConfigFilePathEnvVariable)
 
 	config, err := parseK8SConfig(findK8sConfigFile(k8sConfigFilesystemPathOverride, kubeconfigEnvVar, shell.HomeDir()))
@@ -47,6 +50,10 @@ func NewK8sAPi(shell shell.Shell, k8sConfigFilesystemPathOverride string, apiHos
 
 	if apiHostAndPortOverride == "" {
 		apiHostAndPortOverride = config.Host
+	} else {
+		if !httpPrefix.MatchString(apiHostAndPortOverride) {
+			apiHostAndPortOverride = strings.Join([]string{"https://", apiHostAndPortOverride}, "")
+		}
 	}
 
 	return &kubernetesApi{
