@@ -12,10 +12,11 @@ RUN $HOME/.yarn/bin/yarn install --pure-lockfile
 RUN $HOME/.yarn/bin/yarn webpack
 
 ## compile go server
-FROM gcr.io/runconduit/go-deps:e258aef9 as golang
+FROM gcr.io/runconduit/go-deps:41719552 as golang
 WORKDIR /go/src/github.com/runconduit/conduit
 COPY web web
 COPY controller controller
+COPY pkg pkg
 RUN CGO_ENABLED=0 GOOS=linux go build -a -installsuffix cgo -o web/web ./web
 
 ## package it all up
