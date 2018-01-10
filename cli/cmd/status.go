@@ -7,6 +7,7 @@ import (
 	"os"
 
 	"github.com/runconduit/conduit/controller/api/public"
+
 	"github.com/runconduit/conduit/pkg/healthcheck"
 	"github.com/runconduit/conduit/pkg/k8s"
 	"github.com/runconduit/conduit/pkg/shell"
@@ -44,11 +45,11 @@ problems were found.`,
 			return statusCheckResultWasError(os.Stdout)
 		}
 
-		return checkStatus(os.Stdout, kubectl, kubeApi, conduitApi)
+		return checkStatus(os.Stdout, kubectl, kubeApi, healthcheck.NewGrpcStatusChecker(public.ConduitApiSubsystemName, conduitApi))
 	}),
 }
 
-func checkStatus(w io.Writer, kubectl k8s.Kubectl, kubeApi k8s.KubernetesApi, conduitApi public.ConduitApiClient) error {
+func checkStatus(w io.Writer, checkers ...healthcheck.StatusChecker) error {
 	prettyPrintResults := func(result healthcheck.CheckResult) {
 		checkLabel := fmt.Sprintf("%s: %s", result.SubsystemName, result.CheckDescription)
 
@@ -68,9 +69,9 @@ func checkStatus(w io.Writer, kubectl k8s.Kubectl, kubeApi k8s.KubernetesApi, co
 	}
 
 	checker := healthcheck.MakeHealthChecker()
-	checker.Add(kubectl)
-	checker.Add(kubeApi)
-	checker.Add(conduitApi)
+	for _, c := range checkers {
+		checker.Add(c)
+	}
 
 	check := checker.PerformCheck(prettyPrintResults)
 

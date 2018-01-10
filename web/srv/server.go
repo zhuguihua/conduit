@@ -11,7 +11,11 @@ import (
 	"github.com/julienschmidt/httprouter"
 	"github.com/prometheus/client_golang/prometheus"
 	"github.com/prometheus/client_golang/prometheus/promhttp"
+<<<<<<< HEAD
 	"github.com/runconduit/conduit/controller/api/public"
+=======
+
+>>>>>>> Add grpc check for status on the client
 	pb "github.com/runconduit/conduit/controller/gen/public"
 	"github.com/runconduit/conduit/web/util/filesonly"
 	log "github.com/sirupsen/logrus"
@@ -51,7 +55,7 @@ func (s *Server) ServeHTTP(w http.ResponseWriter, req *http.Request) {
 	s.router.ServeHTTP(w, req)
 }
 
-func NewServer(addr, templateDir, staticDir, uuid, webpackDevServer string, reload bool, apiClient public.ConduitApiClient) *http.Server {
+func NewServer(addr, templateDir, staticDir, uuid, webpackDevServer string, reload bool, apiClient pb.ApiClient) *http.Server {
 	counter := prometheus.NewCounterVec(
 		prometheus.CounterOpts{
 			Name: "http_requests_total",
