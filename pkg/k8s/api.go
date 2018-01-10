@@ -19,7 +19,7 @@ const (
 	KubeapiClientCheckDescription       = "can initialize the client"
 	KubeapiAccessCheckDescription       = "can query the Kubernetes API"
 )
-var /* const */ httpPrefix = regexp.MustCompile(`https?://`)
+var /* const */ httpPrefix = regexp.MustCompile(`://`)
 
 type KubernetesApi interface {
 	UrlFor(namespace string, extraPathStartingWithSlash string) (*url.URL, error)
@@ -118,7 +118,12 @@ func NewK8sAPI(shell shell.Shell, k8sConfigFilesystemPathOverride string, apiHos
 			config:               config,
 		}, nil
 	} else {
-		if !httpPrefix.MatchString(apiHostAndPortOverride) {
+		parsedURL, err := url.Parse(apiHostAndPortOverride)
+		if err != nil {
+			return nil, fmt.Errorf("error parsing override url: %v", err)
+		}
+
+		if parsedURL.Scheme == "" {
 			apiHostAndPortOverride = fmt.Sprintf("https://%s", apiHostAndPortOverride)
 		}
 		return &kubernetesApi{
