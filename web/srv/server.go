@@ -11,11 +11,6 @@ import (
 	"github.com/julienschmidt/httprouter"
 	"github.com/prometheus/client_golang/prometheus"
 	"github.com/prometheus/client_golang/prometheus/promhttp"
-<<<<<<< HEAD
-	"github.com/runconduit/conduit/controller/api/public"
-=======
-
->>>>>>> Add grpc check for status on the client
 	pb "github.com/runconduit/conduit/controller/gen/public"
 	"github.com/runconduit/conduit/web/util/filesonly"
 	log "github.com/sirupsen/logrus"
